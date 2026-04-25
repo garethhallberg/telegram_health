@@ -22,7 +22,11 @@ def build_application(config: AppConfig) -> Application:
         timezone=config.timezone,
     )
     classification_agent = (
-        MistralClassificationAgent(config.mistral_api_key, config.mistral_model)
+        MistralClassificationAgent(
+            api_key=config.mistral_api_key,
+            text_model=config.mistral_text_model,
+            vision_model=config.mistral_vision_model,
+        )
         if config.mistral_api_key
         else DisabledClassificationAgent()
     )

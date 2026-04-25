@@ -10,7 +10,7 @@ Install dependencies with `uv`:
 uv sync
 ```
 
-Edit `.env` with your real Telegram bot token, allowed chat ID, and Mistral API key.
+Edit `.env` with your real Telegram bot token, allowed chat ID, and Mistral API key. For image categorization, use a vision-capable model such as `mistral-small-2506` for `MISTRAL_VISION_MODEL`.
 
 ## Run
 
@@ -26,7 +26,7 @@ The bot accepts text messages and photos from configured chat IDs only. A small 
 - `data/daily/YYYY-MM-DD/habits.txt`
 - `data/daily/YYYY-MM-DD/notes.txt`
 
-Photos are saved under `data/daily/YYYY-MM-DD/images/`, then a reference line is appended through `bin/log_entry.sh`.
+Photos are saved under `data/daily/YYYY-MM-DD/images/`, classified by the Mistral-backed agent using the image content plus any caption, then a reference line is appended through `bin/log_entry.sh`.
 
 If classification fails or no Mistral API key is configured, the message is logged to `notes.txt`, a warning is printed to the console, and details are appended to `logs/error.log`.
 

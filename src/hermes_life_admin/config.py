@@ -19,6 +19,9 @@ class AppConfig:
     timezone_name: str
     mistral_api_key: str | None
     mistral_model: str
+    mistral_text_model: str
+    mistral_vision_model: str
+    mistral_ocr_model: str
     image_analysis_enabled: bool
     calorie_estimation_enabled: bool
     workout_reminder_time: str
@@ -47,6 +50,9 @@ class AppConfig:
             timezone_name=values.get("HERMES_TIMEZONE") or "Europe/London",
             mistral_api_key=_optional_secret(values.get("MISTRAL_API_KEY")),
             mistral_model=values.get("MISTRAL_MODEL") or "mistral-large-latest",
+            mistral_text_model=values.get("MISTRAL_TEXT_MODEL") or values.get("MISTRAL_MODEL") or "mistral-small-latest",
+            mistral_vision_model=values.get("MISTRAL_VISION_MODEL") or "mistral-small-2506",
+            mistral_ocr_model=values.get("MISTRAL_OCR_MODEL") or "mistral-ocr-latest",
             image_analysis_enabled=_parse_bool(values.get("IMAGE_ANALYSIS_ENABLED")),
             calorie_estimation_enabled=_parse_bool(values.get("CALORIE_ESTIMATION_ENABLED")),
             workout_reminder_time=values.get("WORKOUT_REMINDER_TIME") or "10:30",

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 import logging
 
-from hermes_life_admin.classifier import ClassificationAgent, ClassificationError
+from hermes_life_admin.classifier import ClassificationAgent, ClassificationError, ImageClassification
 from hermes_life_admin.routing import (
     Destination,
     image_kind,
@@ -51,7 +51,6 @@ class LoggerService:
         mime_type: str | None = None,
         now: datetime | None = None,
     ) -> CaptureResult:
-        destinations = tuple(self._classify_image(caption, now))
         saved_image = self.storage.save_image(
             content=content,
             kind=image_kind(caption),
@@ -59,10 +58,14 @@ class LoggerService:
             mime_type=mime_type,
             now=now,
         )
+        image_classification = self._classify_image(content, caption, mime_type, saved_image, now)
+        destinations = tuple(image_classification.destinations)
 
         message = f"Image received: {saved_image.relative_path}"
         if caption:
             message = f"{message} | Caption: {caption}"
+        if image_classification.note:
+            message = f"{message} | Analysis: {image_classification.note}"
 
         for destination in destinations:
             self.storage.append_entry(destination, message, now)
@@ -80,14 +83,22 @@ class LoggerService:
             self._record_classification_failure(message, exc, now)
             return [Destination.NOTES]
 
-    def _classify_image(self, caption: str | None, now: datetime | None = None) -> list[Destination]:
-        if not caption:
-            return [Destination.NOTES]
+    def _classify_image(
+        self,
+        content: bytes,
+        caption: str | None,
+        mime_type: str | None,
+        saved_image: SavedImage,
+        now: datetime | None = None,
+    ) -> ImageClassification:
         try:
-            return route_text(caption, self.classification_agent)
+            return self.classification_agent.classify_image(content, caption, mime_type)
         except ClassificationError as exc:
-            self._record_classification_failure(caption, exc, now)
-            return [Destination.NOTES]
+            context = f"Image: {saved_image.relative_path}"
+            if caption:
+                context = f"{context} | Caption: {caption}"
+            self._record_classification_failure(context, exc, now)
+            return ImageClassification(destinations=[Destination.NOTES], image_kind="other")
 
     def _record_classification_failure(
         self,
