@@ -67,6 +67,10 @@ All log entries are append-only. **Never write directly to log files** — alway
 
 Text is classified by the Mistral API returning `{"destinations": [...], "reason": "..."}`. Images use a vision model returning `{"destinations": [...], "image_kind": "...", "note": "..."}`. Both fall back to `notes` on any error.
 
+### Weekly analysis
+
+`analysis.py::MistralWeeklyAnalysisAgent` reads the last 7 days via `DailyStorage.read_week()`, sends a single prompt to Mistral, and returns plain prose (no JSON). Uses `mistral-large-latest` by default — a deliberate quality choice for synthesis, but meaningfully more expensive than the `mistral-small-latest` used for classification. Override with `MISTRAL_ANALYSIS_MODEL` in `.env` if cost is a concern.
+
 ### Scheduled reminders
 
 `bot.py::schedule_reminders` registers four daily jobs via the telegram job queue: workout nudge (configurable days), evening capture prompt, pre-bed check, and weekly review (Sundays). Times are configurable via env vars.

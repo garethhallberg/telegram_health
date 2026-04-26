@@ -5,7 +5,9 @@ import json
 from dataclasses import dataclass
 from typing import Protocol
 
+import httpx
 from mistralai.client import Mistral
+from mistralai.client.errors import SDKError
 
 from hermes_life_admin.routing import Destination
 
@@ -127,7 +129,7 @@ class MistralClassificationAgent:
                 max_tokens=160,
                 response_format={"type": "json_object"},
             )
-        except Exception as exc:
+        except (SDKError, httpx.HTTPError) as exc:
             raise ClassificationError(f"Mistral classification request failed: {exc}") from exc
         content = _response_content(response)
         return _destinations_from_json(content)
