@@ -4,7 +4,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
 
+import httpx
 from mistralai.client import Mistral
+from mistralai.client.errors import SDKError
 
 
 WEEKLY_ANALYSIS_SYSTEM_PROMPT = """You are a personal health review assistant. The user gives you their logged data for the past 7 days: meals, workouts, sleep, habits, and notes.
@@ -53,7 +55,7 @@ class MistralWeeklyAnalysisAgent:
                 temperature=0.3,
                 max_tokens=1200,
             )
-        except Exception as exc:
+        except (SDKError, httpx.HTTPError) as exc:
             raise AnalysisError(f"Mistral analysis request failed: {exc}") from exc
         return WeeklySummary(text=_response_text(response), week_label=week_label)
 
@@ -70,7 +72,7 @@ def _format_week_for_prompt(week_data: dict[str, dict[str, str]], week_label: st
     lines: list[str] = [f"Week: {week_label}", ""]
     for date_key, day_data in week_data.items():
         day_dt = datetime.strptime(date_key, "%Y-%m-%d")
-        day_header = day_dt.strftime("%A %-d %B")
+        day_header = f"{day_dt.strftime('%A')} {day_dt.day} {day_dt.strftime('%B')}"
         lines.append(f"--- {day_header} ---")
         for section, content in day_data.items():
             lines.append(f"{section.upper()}:")
