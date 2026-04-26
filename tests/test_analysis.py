@@ -150,9 +150,23 @@ def test_weekly_review_runs_agent_and_writes_summary_file(tmp_path: Path) -> Non
     assert len(agent.calls) == 1
     week_data, label = agent.calls[0]
     assert "2026-04-22" in week_data
-    summary_file = tmp_path / "data" / "weekly_summaries" / f"{label}-summary.txt"
-    assert summary_file.exists()
-    assert summary_file.read_text(encoding="utf-8") == "Great week overall."
+    summary_files = list((tmp_path / "data" / "weekly_summaries").glob(f"{label}-summary-*.txt"))
+    assert len(summary_files) == 1
+    assert summary_files[0].read_text(encoding="utf-8").rstrip("\n") == "Great week overall."
+
+
+def test_weekly_review_does_not_overwrite_previous_summary(tmp_path: Path) -> None:
+    _write_daily_file(tmp_path, "2026-04-22", "meals.txt", "17:05 Dal\n")
+    agent = FakeWeeklyAnalysisAgent("Summary text.")
+    service = LoggerService(_storage(tmp_path), _fake_classification_agent(), agent)
+
+    first = datetime(2026, 4, 25, 18, 0, 0, tzinfo=ZoneInfo("Europe/London"))
+    second = datetime(2026, 4, 25, 18, 0, 5, tzinfo=ZoneInfo("Europe/London"))
+    service.weekly_review(first)
+    service.weekly_review(second)
+
+    summary_files = list((tmp_path / "data" / "weekly_summaries").glob("*-summary-*.txt"))
+    assert len(summary_files) == 2
 
 
 def test_weekly_review_returns_failure_message_on_analysis_error(

@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 import logging
-from pathlib import Path
 
 from hermes_life_admin.analysis import AnalysisError, WeeklyAnalysisAgent, week_label
 from hermes_life_admin.classifier import ClassificationAgent, ClassificationError, ImageClassification
@@ -57,10 +56,7 @@ class LoggerService:
             self.storage.append_error_log(warning, now)
             return "Weekly review is unavailable right now."
 
-        summaries_dir = self.storage.root_dir / "data" / "weekly_summaries"
-        summaries_dir.mkdir(parents=True, exist_ok=True)
-        summary_file = summaries_dir / f"{label}-summary.txt"
-        summary_file.write_text(summary.text, encoding="utf-8")
+        self.storage.write_weekly_summary(label, summary.text, now)
 
         return summary.text
 

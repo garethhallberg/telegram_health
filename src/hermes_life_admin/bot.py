@@ -137,7 +137,27 @@ async def run_weekly_review(context: ContextTypes.DEFAULT_TYPE) -> None:
     service: LoggerService = context.application.bot_data["logger_service"]
     await context.bot.send_message(chat_id=chat_id, text="Reviewing the week now...")
     summary = service.weekly_review()
-    await context.bot.send_message(chat_id=chat_id, text=summary)
+    for chunk in _chunk_for_telegram(summary):
+        await context.bot.send_message(chat_id=chat_id, text=chunk)
+
+
+TELEGRAM_MESSAGE_LIMIT = 4096
+
+
+def _chunk_for_telegram(text: str, limit: int = TELEGRAM_MESSAGE_LIMIT) -> list[str]:
+    if len(text) <= limit:
+        return [text]
+    chunks: list[str] = []
+    remaining = text
+    while len(remaining) > limit:
+        split_at = remaining.rfind("\n", 0, limit)
+        if split_at <= 0:
+            split_at = limit
+        chunks.append(remaining[:split_at])
+        remaining = remaining[split_at:].lstrip("\n")
+    if remaining:
+        chunks.append(remaining)
+    return chunks
 
 
 def _allowed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:

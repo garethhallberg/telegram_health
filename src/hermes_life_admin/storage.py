@@ -77,6 +77,22 @@ class DailyStorage:
                 result[date_key] = day_data
         return result
 
+    def write_weekly_summary(
+        self,
+        label: str,
+        text: str,
+        now: datetime | None = None,
+    ) -> Path:
+        summaries_dir = self.root_dir / "data" / "weekly_summaries"
+        timestamp = self._summary_timestamp(now)
+        target = summaries_dir / f"{label}-summary-{timestamp}.txt"
+        subprocess.run(
+            [str(self.log_script), str(target), text],
+            check=True,
+            cwd=str(self.root_dir),
+        )
+        return target
+
     def append_error_log(self, message: str, now: datetime | None = None) -> Path:
         logs_dir = self.root_dir / "logs"
         logs_dir.mkdir(parents=True, exist_ok=True)
@@ -100,6 +116,10 @@ class DailyStorage:
     def _error_timestamp(self, now: datetime | None = None) -> str:
         current = now or datetime.now(self.timezone)
         return current.astimezone(self.timezone).isoformat(timespec="seconds")
+
+    def _summary_timestamp(self, now: datetime | None = None) -> str:
+        current = now or datetime.now(self.timezone)
+        return current.astimezone(self.timezone).strftime("%Y%m%d-%H%M%S")
 
     def _next_asset_path(self, directory: Path, kind: str, extension: str) -> Path:
         safe_kind = "".join(char if char.isalnum() or char == "_" else "_" for char in kind)
