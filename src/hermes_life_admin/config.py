@@ -22,6 +22,7 @@ class AppConfig:
     mistral_text_model: str
     mistral_vision_model: str
     mistral_ocr_model: str
+    mistral_analysis_model: str
     image_analysis_enabled: bool
     calorie_estimation_enabled: bool
     workout_reminder_time: str
@@ -53,6 +54,7 @@ class AppConfig:
             mistral_text_model=values.get("MISTRAL_TEXT_MODEL") or values.get("MISTRAL_MODEL") or "mistral-small-latest",
             mistral_vision_model=values.get("MISTRAL_VISION_MODEL") or "mistral-small-2506",
             mistral_ocr_model=values.get("MISTRAL_OCR_MODEL") or "mistral-ocr-latest",
+            mistral_analysis_model=values.get("MISTRAL_ANALYSIS_MODEL") or values.get("MISTRAL_MODEL") or "mistral-large-latest",
             image_analysis_enabled=_parse_bool(values.get("IMAGE_ANALYSIS_ENABLED")),
             calorie_estimation_enabled=_parse_bool(values.get("CALORIE_ESTIMATION_ENABLED")),
             workout_reminder_time=values.get("WORKOUT_REMINDER_TIME") or "10:30",

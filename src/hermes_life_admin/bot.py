@@ -6,6 +6,7 @@ from datetime import time, tzinfo
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
 
+from hermes_life_admin.analysis import DisabledWeeklyAnalysisAgent, MistralWeeklyAnalysisAgent
 from hermes_life_admin.classifier import DisabledClassificationAgent, MistralClassificationAgent
 from hermes_life_admin.config import AppConfig
 from hermes_life_admin.logger_service import LoggerService
@@ -30,7 +31,15 @@ def build_application(config: AppConfig) -> Application:
         if config.mistral_api_key
         else DisabledClassificationAgent()
     )
-    service = LoggerService(storage, classification_agent)
+    analysis_agent = (
+        MistralWeeklyAnalysisAgent(
+            api_key=config.mistral_api_key,
+            model=config.mistral_analysis_model,
+        )
+        if config.mistral_api_key
+        else DisabledWeeklyAnalysisAgent()
+    )
+    service = LoggerService(storage, classification_agent, analysis_agent)
 
     application = Application.builder().token(config.telegram_bot_token).build()
     application.bot_data["config"] = config
@@ -109,10 +118,10 @@ def schedule_reminders(application: Application, config: AppConfig) -> None:
             name=f"pre-bed-check-{chat_id}",
         )
         job_queue.run_daily(
-            send_reminder,
+            run_weekly_review,
             time=_parse_time(config.weekly_review_time, config.timezone),
             days=(0,),
-            data={"chat_id": chat_id, "text": "Reviewing the week now."},
+            data={"chat_id": chat_id},
             name=f"weekly-review-{chat_id}",
         )
 
@@ -120,6 +129,35 @@ def schedule_reminders(application: Application, config: AppConfig) -> None:
 async def send_reminder(context: ContextTypes.DEFAULT_TYPE) -> None:
     data = context.job.data
     await context.bot.send_message(chat_id=data["chat_id"], text=data["text"])
+
+
+async def run_weekly_review(context: ContextTypes.DEFAULT_TYPE) -> None:
+    data = context.job.data
+    chat_id = data["chat_id"]
+    service: LoggerService = context.application.bot_data["logger_service"]
+    await context.bot.send_message(chat_id=chat_id, text="Reviewing the week now...")
+    summary = service.weekly_review()
+    for chunk in _chunk_for_telegram(summary):
+        await context.bot.send_message(chat_id=chat_id, text=chunk)
+
+
+TELEGRAM_MESSAGE_LIMIT = 4096
+
+
+def _chunk_for_telegram(text: str, limit: int = TELEGRAM_MESSAGE_LIMIT) -> list[str]:
+    if len(text) <= limit:
+        return [text]
+    chunks: list[str] = []
+    remaining = text
+    while len(remaining) > limit:
+        split_at = remaining.rfind("\n", 0, limit)
+        if split_at <= 0:
+            split_at = limit
+        chunks.append(remaining[:split_at])
+        remaining = remaining[split_at:].lstrip("\n")
+    if remaining:
+        chunks.append(remaining)
+    return chunks
 
 
 def _allowed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
