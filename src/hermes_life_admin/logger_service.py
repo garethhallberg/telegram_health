@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 import logging
+from pathlib import Path
 
+from hermes_life_admin.analysis import AnalysisError, WeeklyAnalysisAgent, week_label
 from hermes_life_admin.classifier import ClassificationAgent, ClassificationError, ImageClassification
 from hermes_life_admin.routing import (
     Destination,
@@ -25,12 +27,48 @@ class CaptureResult:
 
 
 class LoggerService:
-    def __init__(self, storage: DailyStorage, classification_agent: ClassificationAgent) -> None:
+    def __init__(
+        self,
+        storage: DailyStorage,
+        classification_agent: ClassificationAgent,
+        analysis_agent: WeeklyAnalysisAgent | None = None,
+    ) -> None:
         self.storage = storage
         self.classification_agent = classification_agent
+        self.analysis_agent = analysis_agent
+
+    def weekly_review(self, now: datetime | None = None) -> str:
+        """Reads the last 7 days, runs the analysis agent, writes the summary file, returns the summary text.
+
+        Never raises — returns a user-friendly message on any failure.
+        """
+        if self.analysis_agent is None:
+            return "Analysis is not configured."
+
+        current = now or datetime.now(self.storage.timezone)
+        label = week_label(current)
+        week_data = self.storage.read_week(current)
+
+        try:
+            summary = self.analysis_agent.analyse_week(week_data, label)
+        except AnalysisError as exc:
+            warning = f"Weekly review failed: {exc}"
+            LOGGER.warning(warning)
+            self.storage.append_error_log(warning, now)
+            return "Weekly review is unavailable right now."
+
+        summaries_dir = self.storage.root_dir / "data" / "weekly_summaries"
+        summaries_dir.mkdir(parents=True, exist_ok=True)
+        summary_file = summaries_dir / f"{label}-summary.txt"
+        summary_file.write_text(summary.text, encoding="utf-8")
+
+        return summary.text
 
     def log_text(self, message: str, now: datetime | None = None) -> CaptureResult:
         if is_analysis_command(message):
+            if "weekly review" in message.strip().lower():
+                text = self.weekly_review(now)
+                return CaptureResult(destinations=(Destination.NOTES,), acknowledgement=text)
             self.storage.append_entry(Destination.NOTES, f"Command received: {message}", now)
             return CaptureResult(
                 destinations=(Destination.NOTES,),

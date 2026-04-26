@@ -3,7 +3,7 @@ from __future__ import annotations
 import mimetypes
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -55,6 +55,27 @@ class DailyStorage:
 
         relative_path = path.relative_to(self.daily_dir(now)).as_posix()
         return SavedImage(path=path, relative_path=relative_path)
+
+    def read_week(self, now: datetime | None = None) -> dict[str, dict[str, str]]:
+        """Returns log file contents for the 7 days ending on `now` (inclusive), oldest first.
+
+        Outer key is ISO date string ("2026-04-22"). Inner key is destination name
+        ("meals", "training", etc.). Days with no data and missing files are omitted.
+        """
+        current = now or datetime.now(self.timezone)
+        result: dict[str, dict[str, str]] = {}
+        for offset in range(6, -1, -1):
+            day_dt = current - timedelta(days=offset)
+            date_key = day_dt.astimezone(self.timezone).strftime("%Y-%m-%d")
+            day_dir = self.root_dir / "data" / "daily" / date_key
+            day_data: dict[str, str] = {}
+            for destination in Destination:
+                file_path = day_dir / destination.filename
+                if file_path.exists():
+                    day_data[destination.value] = file_path.read_text(encoding="utf-8")
+            if day_data:
+                result[date_key] = day_data
+        return result
 
     def append_error_log(self, message: str, now: datetime | None = None) -> Path:
         logs_dir = self.root_dir / "logs"

@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from hermes_life_admin.analysis import AnalysisError, WeeklySummary
 from hermes_life_admin.classifier import ClassificationError, ImageClassification
 from hermes_life_admin.logger_service import LoggerService
 from hermes_life_admin.routing import Destination
@@ -59,10 +60,28 @@ def test_analysis_command_is_logged_to_notes_and_stubbed(tmp_path: Path) -> None
     service = LoggerService(_storage(tmp_path), FakeClassificationAgent([Destination.MEALS]))
     now = datetime(2026, 4, 22, 18, 0, tzinfo=ZoneInfo("Europe/London"))
 
-    result = service.log_text("weekly review", now=now)
+    result = service.log_text("estimate calories", now=now)
 
     assert result.acknowledgement == "Analysis commands are not implemented yet."
-    assert _read(tmp_path, "notes.txt") == "18:00 Command received: weekly review\n"
+    assert _read(tmp_path, "notes.txt") == "18:00 Command received: estimate calories\n"
+
+
+def test_log_text_weekly_review_returns_summary(tmp_path: Path) -> None:
+    class FakeWeeklyAnalysisAgent:
+        def analyse_week(self, week_data: dict, label: str) -> WeeklySummary:
+            return WeeklySummary(text="Good week.", week_label=label)
+
+    service = LoggerService(
+        _storage(tmp_path),
+        FakeClassificationAgent([Destination.MEALS]),
+        analysis_agent=FakeWeeklyAnalysisAgent(),
+    )
+    now = datetime(2026, 4, 27, 18, 0, tzinfo=ZoneInfo("Europe/London"))
+
+    result = service.log_text("weekly review", now=now)
+
+    assert result.acknowledgement == "Good week."
+    assert result.destinations == (Destination.NOTES,)
 
 
 def test_salad_message_routes_to_meals_when_agent_classifies_it(tmp_path: Path) -> None:
